@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>Purchase Request Portal — Maintenance × Purchasing</title>
+  <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div class="wrap">
+    <header class="site-header">
+      <div class="brand">
+        <div class="logo" aria-hidden="true"></div>
+        <div>
+          <h1 class="brand-title">Purchase Request Flow MPR</h1>
+          <div class="subtitle">Order Part</div>
+        </div>
+      </div>
+      <nav class="tabs" aria-label="Navigation tabs">
+        <button class="tab active" data-tab="request">ขอสั่งซื้อ</button>
+        <button class="tab" data-tab="dashboard">Dashboard จัดซื้อ</button>
+        <button class="tab" data-tab="report">สรุปยอด/Report</button>
+        <button class="tab" data-tab="settings">ตั้งค่า</button>
+      </nav>
+    </header>
+
+    <main>
+      <!-- ===== Request Form ===== -->
+      <section id="request" class="card panel" aria-labelledby="heading-request">
+        <h2 id="heading-request" class="section-title">ฟอร์มขอสั่งซื้ออะไหล่</h2>
+
+        <div class="grid cols-2">
+          <div><label for="rq_name">ชื่อผู้ขอ</label><input id="rq_name" placeholder="เช่น Mr.Apiwut" /></div>
+
+          <div><label for="rq_dept">แผนก</label>
+            <input id="rq_dept" placeholder="เช่น MVR/MSR/Lotus" data-combo="depts" />
+          </div>
+
+          <div><label for="rq_part">ชื่ออะไหล่ (Part Name)</label><input id="rq_part" placeholder="เช่น Vacuum Pad HB63" /></div>
+          <div><label for="rq_pn">Part No.</label><input id="rq_pn" placeholder="เช่น HB63" /></div>
+          <div><label for="rq_qty">จำนวน</label><input id="rq_qty" type="number" min="1" step="1" placeholder="เช่น 20" /></div>
+
+          <div><label for="rq_unit">หน่วย</label>
+            <input id="rq_unit" placeholder="เช่น pcs / meter / set" data-combo="units" />
+          </div>
+
+          <div><label for="rq_machine">ใช้กับเครื่อง/ไลน์</label>
+            <input id="rq_machine" placeholder="เช่น Vacuum Forming #3" data-combo="machines" />
+          </div>
+
+          <!-- ลบ Due Date ออกแล้ว -->
+
+          <div class="grow">
+            <label for="rq_priority">ระดับความเร่งด่วน</label>
+            <select id="rq_priority">
+              <option value="Urgent">Urgent — กระทบการผลิต</option>
+              <option value="High">High — ใช้ใน PM รอบใกล้</option>
+              <option value="Normal" selected>Normal — สำรองทั่วไป</option>
+            </select>
+          </div>
+          <div class="grow">
+            <label for="rq_image">แนบรูปอ้างอิง (ไม่บังคับ)</label>
+            <input id="rq_image" type="file" accept="image/*" />
+            <div class="note">ถ้าเชื่อมกับ Apps Script จะอัปโหลดเก็บใน Google Drive อัตโนมัติ</div>
+          </div>
+
+          <div class="grow full">
+            <label for="rq_quotes">แนบใบเสนอราคา (PDF, ได้สูงสุด 3 ไฟล์, ≤ 1.5MB/ไฟล์)</label>
+            <input id="rq_quotes" type="file" accept="application/pdf" multiple />
+          </div>
+
+          <div class="grow full">
+            <label for="rq_reason">เหตุผล/ความจำเป็น</label>
+            <textarea id="rq_reason" placeholder="เช่น ของเดิมแตกร้าว สูญญากาศตก ถ้าไม่เปลี่ยนเสี่ยงเครื่องหยุด"></textarea>
+          </div>
+        </div>
+
+        <div class="row stack-sm" style="margin-top:12px">
+          <button class="btn" id="btn_submit">ส่งคำขอ</button>
+          <button class="btn outline" id="btn_clear">ล้างฟอร์ม</button>
+          <span class="note right" id="req_status" aria-live="polite">โหมด: <b id="mode_label"></b> </span>
+        </div>
+      </section>
+
+      <!-- ===== Dashboard ===== -->
+      <section id="dashboard" class="card panel hidden" aria-labelledby="heading-dashboard">
+        <div class="toolbar">
+          <h2 id="heading-dashboard" class="section-title">Dashboard จัดซื้อ</h2>
+          <div class="row stack-sm">
+            <select id="f_priority" class="status-select" aria-label="Filter by Priority">
+              <option value="">ทั้งหมด (Priority)</option>
+              <option value="Urgent">Urgent</option>
+              <option value="High">High</option>
+              <option value="Normal">Normal</option>
+            </select>
+            <select id="f_status" class="status-select" aria-label="Filter by Status">
+              <option value="">ทั้งหมด (สถานะ)</option>
+              <option value="Requested">Requested</option>
+              <option value="Approved">Approved</option>
+              <option value="PO Issued">PO Issued</option>
+              <option value="Received">Received</option>
+              <option value="Rejected">Rejected</option>
+            </select>
+            <input id="f_search" placeholder="ค้นหาชื่ออะไหล่ / Part No. / เครื่อง" aria-label="ค้นหา" />
+            <button class="btn small" id="btn_reload">รีเฟรช</button>
+          </div>
+        </div>
+
+        <div class="table card soft">
+          <table>
+            <colgroup>
+              <col style="width:110px" />
+              <col style="width:220px" />
+              <col style="width:140px" />
+              <col style="width:140px" />
+              <col style="width:120px" />
+              <col style="width:180px" />
+              <!-- ตัด DUE ออก -->
+              <col style="width:140px" />
+              <col style="width:280px" />
+            </colgroup>
+            <thead>
+              <tr>
+                <th>PRIORITY</th>
+                <th>Part Name</th>
+                <th>Part No.</th>
+                <th>เครื่อง/ไลน์</th>
+                <th>จำนวน</th>
+                <th>ผู้ขอ</th>
+                <!-- ไม่มี DUE แล้ว -->
+                <th>สถานะ</th>
+                <th>อัปเดต</th>
+              </tr>
+            </thead>
+            <tbody id="tb_rows"></tbody>
+          </table>
+        </div>
+        <div class="footer-note">เริ่มจากรายการ Urgent ก่อนเสมอ เพื่อกัน Downtime</div>
+      </section>
+
+      <!-- ===== Report ===== -->
+      <section id="report" class="card panel hidden" aria-labelledby="heading-report">
+        <h2 id="heading-report" class="section-title">สรุปยอด / Report (เดือนปัจจุบัน)</h2>
+
+        <div class="kpi kpi-pretty">
+          <div class="tile kpi-a"><h3>คำขอทั้งหมด</h3><div class="val" id="k_total">0</div><div class="kpi-sub">รวมทุกสถานะ</div></div>
+          <div class="tile kpi-b"><h3>รอยืนยัน/ส่งต่อ</h3><div class="val" id="k_requested">0</div><div class="kpi-sub">สถานะ Requested</div></div>
+          <div class="tile kpi-c"><h3>ออก PO แล้ว</h3><div class="val" id="k_po">0</div><div class="kpi-sub">กำลังดำเนินการสั่งซื้อ</div></div>
+          <div class="tile kpi-e"><h3>ถูก Reject</h3><div class="val" id="k_rej">0</div><div class="kpi-sub">ยกเลิกรายการ</div></div>
+          <div class="tile kpi-d"><h3>รับของครบแล้ว</h3><div class="val" id="k_recv">0</div><div class="kpi-sub">ปิดงานสำเร็จ</div></div>
+        </div>
+
+        <div class="summary-band">
+          <div id="k_summary">เดือนนี้ยังไม่มีข้อมูล</div>
+          <div class="row">
+            <button class="btn small" id="btn_export">ส่งออก CSV</button>
+            <span class="note">แนบหัวหน้า/บัญชีเพื่ออัปเดตความคืบหน้า</span>
+          </div>
+        </div>
+
+        <div class="card panel soft" style="margin-top:12px">
+          <h3 class="subhead">รายการเดือนนี้</h3>
+          <table class="report-table">
+            <colgroup>
+              <col /><col /><col /><col /><col /><col /><col />
+            </colgroup>
+            <thead>
+              <tr>
+                <th>วันที่</th>
+                <th>ผู้ขอ</th>
+                <th>PRIORITY</th>
+                <th>PART</th>
+                <th>QTY</th>
+                <th>สถานะ</th>
+                <th>PO#</th>
+              </tr>
+            </thead>
+            <tbody id="tb_report"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- ===== Settings ===== -->
+      <section id="settings" class="card panel hidden" aria-labelledby="heading-settings">
+        <h2 id="heading-settings" class="section-title">ตั้งค่ารายการ (ใช้ในดรอปดาวน์)</h2>
+        <div class="settings-grid">
+          <div class="set-card">
+            <div class="set-head"><h3>ชื่อแผนก (depts)</h3><div class="note">ใช้กับช่อง “แผนก”</div></div>
+            <div class="set-body">
+              <div class="tag-list" id="list_depts"></div>
+              <div class="set-row">
+                <input id="add_dept" placeholder="พิมพ์ชื่อแผนกแล้วกด +"/>
+                <button class="btn small" id="btn_add_dept">+</button>
+              </div>
+            </div>
+          </div>
+
+          <div class="set-card">
+            <div class="set-head"><h3>ชื่อหน่วย (units)</h3><div class="note">ใช้กับช่อง “หน่วย”</div></div>
+            <div class="set-body">
+              <div class="tag-list" id="list_units"></div>
+              <div class="set-row">
+                <input id="add_unit" placeholder="เช่น pcs, set, meter"/>
+                <button class="btn small" id="btn_add_unit">+</button>
+              </div>
+            </div>
+          </div>
+
+          <div class="set-card">
+            <div class="set-head"><h3>ชื่อเครื่อง/ไลน์ (machines)</h3><div class="note">ใช้กับช่อง “ใช้กับเครื่อง/ไลน์”</div></div>
+            <div class="set-body">
+              <div class="tag-list" id="list_machines"></div>
+              <div class="set-row">
+                <input id="add_machine" placeholder="เช่น Vacuum Forming #1, Crusher #2"/>
+                <button class="btn small" id="btn_add_machine">+</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="row" style="margin-top:10px">
+          <button class="btn outline" id="btn_reset_defaults">คืนค่าเริ่มต้น</button>
+          <span class="note">บันทึกอัตโนมัติ (เก็บในเครื่องนี้)</span>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <!-- ===== Detail Modal ===== -->
+  <div id="detail_modal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="detail_title" aria-hidden="true">
+    <div class="modal-backdrop" data-close></div>
+    <div class="modal-card">
+      <div class="modal-head">
+        <h3 id="detail_title">รายละเอียดคำขอ</h3>
+        <button class="modal-close" aria-label="Close" data-close>&times;</button>
+      </div>
+      <div id="detail_body" class="modal-body"></div>
+      <div class="modal-foot">
+        <button class="btn outline" data-close>ปิด</button>
+      </div>
+    </div>
+  </div>
+
+  <script type="module" src="app.js"></script>
+</body>
+</html>
