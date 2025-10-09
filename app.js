@@ -49,9 +49,9 @@ const state = { rows: [], reportRows: [] };
 /* ---------- Lists (combobox) ---------- */
 const LIST_STORE_KEY='purchase_portal_lists_v1';
 const DEFAULT_LISTS={
-  depts:['Maintenance (MVR)','Maintenance (MSR)','Production','QA/QC','Engineering'],
+  depts:['Maintenance (MVR)','Maintenance (MSR)','Maintenance (Lotus)'],
   units:['pcs','set','meter','roll','box','pack'],
-  machines:['Vacuum Forming #1','Vacuum Forming #2','Vacuum Forming #3','Crusher #1','Crusher #2','Inner Liner #1']
+  machines:['Vacuum Forming','Extruder','Robot C-line','Crusher','Robot B-line','Press','Lead wire','Pipe','Gasket','Vacuum Lotus']
 };
 function loadLists(){ try{ return {...DEFAULT_LISTS, ...(JSON.parse(localStorage.getItem(LIST_STORE_KEY)||'{}'))}; }catch{ return {...DEFAULT_LISTS}; } }
 function saveLists(l){ localStorage.setItem(LIST_STORE_KEY, JSON.stringify(l||{})); }
@@ -695,3 +695,4 @@ prettyUpload(document.getElementById('rq_image'),  {
 prettyUpload(document.getElementById('rq_quotes'), {
   title:'แนบใบเสนอราคา (PDF)', hint:'ลากวางหรือคลิกเลือก · ได้สูงสุด 3 ไฟล์', aria:'อัปโหลดใบเสนอราคา'
 });
+
