@@ -1,4 +1,4 @@
-/* app.js  — ใช้ Supabase เท่านั้น (ไม่มีโหมด demo) */
+/* app.js — ใช้ Supabase เท่านั้น (ไม่มีโหมด demo) */
 const SUPABASE_URL  = "https://mleffbtdolgxzybqbszm.supabase.co";
 const SUPABASE_ANON = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1sZWZmYnRkb2xneHp5YnFic3ptIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTk5MDkzMzEsImV4cCI6MjA3NTQ4NTMzMX0.MRip0lGdmugYpfFvaLddwdxLNm4s5rTAdemd0QS_B3Y";
 
@@ -8,6 +8,17 @@ const QUOTE_BUCKET = "pr-quotes";
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 const supabase = createClient(SUPABASE_URL, SUPABASE_ANON);
+
+// ลงชื่อแบบ anonymous เพื่อให้ policy ฝั่ง Supabase ที่ต้องการ authenticated ทำงาน
+(async () => {
+  try {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) await supabase.auth.signInAnonymously();
+  } catch (e) {
+    console.warn("Anonymous sign-in skipped:", e?.message || e);
+  }
+})();
+
 document.getElementById('mode_label')?.replaceChildren(document.createTextNode('Supabase'));
 
 /* ---------- Helpers ---------- */
@@ -20,6 +31,13 @@ function fmtDate(d){
     return new Date(Number(y),Number(m)-1,Number(day)).toLocaleDateString('th-TH');
   }
   return new Date(d).toLocaleDateString('th-TH');
+}
+function fmtDateISO(d){
+  const dt = new Date(d);
+  const y  = dt.getFullYear();
+  const m  = String(dt.getMonth()+1).padStart(2,'0');
+  const da = String(dt.getDate()).padStart(2,'0');
+  return `${y}-${m}-${da}`;
 }
 const uid = ()=> Math.random().toString(36).slice(2)+Date.now().toString(36);
 function esc(s){ return String(s??'').replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;').replaceAll('"','&quot;').replaceAll("'","&#39;"); }
@@ -84,6 +102,7 @@ async function apiList(){ const { data,error } = await supabase.from(TABLE).sele
 async function apiUpdate(patch){
   const payload={};
   if('status'in patch) payload.status=patch.status;
+  if('status_ts'in patch) payload.status_ts=patch.status_ts;   // ✅ เวลาเปลี่ยนสถานะ
   if('po'in patch) payload.po=patch.po;
   if('note'in patch) payload.note=patch.note;
   const { error } = await supabase.from(TABLE).update(payload).eq('id',patch.id);
@@ -104,7 +123,7 @@ async function apiMonth(){
   if(error) throw error; return { ok:true, rows:data };
 }
 
-/* ---------- Combobox (เครื่อง/หน่วย/แผนก) ---------- */
+/* ---------- Combobox ---------- */
 function attachCombobox(input,sourceGetter){
   const wrap=document.createElement('div'); wrap.className='combo-wrap';
   input.parentNode.insertBefore(wrap,input); wrap.appendChild(input);
@@ -193,23 +212,19 @@ function bindSettingsActions(){
   });
 }
 
-/* ---------- Tabs (sync กับจอเล็ก/เมนู) ---------- */
+/* ---------- Tabs ---------- */
 function setActiveTab(tab){
-  // เปิด/ปิด panel
   $('#request') .classList.toggle('hidden', tab!=='request');
   $('#dashboard').classList.toggle('hidden', tab!=='dashboard');
   $('#report')  .classList.toggle('hidden', tab!=='report');
   $('#settings').classList.toggle('hidden', tab!=='settings');
 
-  // active state แท็บเดสก์ท็อป
   $$('.tab').forEach(x=> x.classList.toggle('active', x.dataset.tab===tab));
 
-  // โหลดข้อมูล
   if(tab==='dashboard') reloadTable();
   if(tab==='report')    loadReport();
   if(tab==='settings'){ renderSettings(); initComboboxes(); }
 
-  // ปิดเมนูมือถือ + รีเซ็ตปุ่มกลับเป็น "เมนู"
   const mBtn  = document.getElementById('mobile_menu_btn');
   const mList = document.getElementById('mobile_menu_list');
   if (mList && !mList.classList.contains('hidden')) mList.classList.add('hidden');
@@ -229,7 +244,7 @@ function bindTabs(){
   });
 }
 
-/* ---------- Mobile menu (minimal + รองรับ touch) ---------- */
+/* ---------- Mobile menu ---------- */
 function initMobileMenu(){
   const btn  = document.getElementById('mobile_menu_btn');
   const list = document.getElementById('mobile_menu_list');
@@ -302,7 +317,9 @@ document.getElementById('btn_submit')?.addEventListener('click', async ()=>{
 
   const baseRow={
     id, ts, requester, dept, part, pn, qty, unit, machine,
-    priority, reason, image_url:'', status:'Requested', po:'', note:'', quote_files:[]
+    priority, reason, image_url:'', status:'Requested',
+    status_ts: ts,                 // ✅ เวลาอัปเดตสถานะเริ่มต้น
+    po:'', note:'', quote_files:[]
   };
 
   const btn=$('#btn_submit'); btn.disabled=true; btn.textContent='กำลังส่ง...';
@@ -340,8 +357,15 @@ async function reloadTable(){
 
   if(priority) rows=rows.filter(r=>r.priority===priority);
   if(status)   rows=rows.filter(r=>r.status===status);
-  if(q){ rows=rows.filter(r=>(r.part+' '+r.pn+' '+r.machine+' '+r.requester).toLowerCase().includes(q)); }
-
+  if (q) {
+  rows = rows.filter(r =>
+    [r.part, r.pn, r.machine, r.requester, r.dept]   // ✅ เพิ่ม r.dept
+      .filter(Boolean)
+      .join(' ')
+      .toLowerCase()
+      .includes(q)
+  );
+}
   rows.sort((a,b)=>{
     const pr=p=>p==='Urgent'?0:p==='High'?1:2;
     const c1=pr(a.priority)-pr(b.priority); if(c1!==0) return c1;
@@ -359,7 +383,10 @@ async function reloadTable(){
       <td>${esc(r.machine)||'-'}</td>
       <td>${esc(r.qty)} ${esc(r.unit||'')}</td>
       <td>${esc(r.requester)} <div class="note">${fmtDate(r.ts)}</div></td>
-      <td><span class="pill ${statusColor(r.status)}">${esc(r.status||'-')}</span></td>
+      <td>
+        <span class="pill ${statusColor(r.status)}">${esc(r.status||'-')}</span>
+        <div class="note" style="margin-top:4px">อัปเดต: ${fmtDate(r.status_ts || r.ts)}</div>
+      </td>
       <td class="col-actions">
         <div class="actions">
           <button class="btn small outline act-detail" data-id="${r.id}">รายละเอียด</button>
@@ -370,7 +397,6 @@ async function reloadTable(){
           <button class="btn small outline act-save" data-id="${r.id}">บันทึก</button>
           <button class="btn small danger act-del" data-id="${r.id}">ลบ</button>
         </div>
-        ${r.image_url? `<div class="note" style="margin-top:6px"><a href="${esc(r.image_url)}" target="_blank" rel="noopener">ดูรูป</a></div>` : ''}
       </td>
     `;
     tbody.appendChild(tr);
@@ -385,7 +411,16 @@ async function reloadTable(){
       const id=btn.dataset.id;
       const st=$(`select.status-select[data-id="${id}"]`).value;
       const poOrNote=$(`input.po-input[data-id="${id}"]`).value.trim();
-      const payload={id,status:st}; if(st==='PO Issued') payload.po=poOrNote; else payload.note=poOrNote;
+
+      const prev = state.rows.find(r=>r.id===id);
+      const payload={ id };
+      if(st==='PO Issued') payload.po = poOrNote; else payload.note = poOrNote;
+
+      // ถ้าสถานะเปลี่ยน ค่อยอัปเดต status และเวลาที่เปลี่ยน
+      if (!prev || prev.status !== st) {
+        payload.status = st;
+        payload.status_ts = new Date().toISOString();
+      }
 
       btn.textContent='กำลังบันทึก...'; btn.disabled=true;
       try{ await apiUpdate(payload); showToast('บันทึกแล้ว','success'); await reloadTable(); }
@@ -419,7 +454,8 @@ document.getElementById('f_priority')?.addEventListener('change',debReload);
 document.getElementById('f_status')?.addEventListener('change',debReload);
 document.getElementById('f_search')?.addEventListener('input',debReload);
 
-/* ---------- Report ---------- */
+/* ---------- Report (มี Approved) ---------- */
+/* ---------- Report (มี Approved + แสดงวันอัปเดตสถานะ) ---------- */
 async function loadReport(){
   try{
     const res = await apiMonth();
@@ -428,29 +464,38 @@ async function loadReport(){
 
     const total = rows.length;
     const rq    = rows.filter(r => r.status === 'Requested').length;
+    const appr  = rows.filter(r => r.status === 'Approved').length;
     const po    = rows.filter(r => r.status === 'PO Issued').length;
     const recv  = rows.filter(r => r.status === 'Received').length;
     const rej   = rows.filter(r => r.status === 'Rejected').length;
 
     const set = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
-    set('k_total', total); set('k_requested', rq); set('k_po', po); set('k_recv', recv); set('k_rej', rej);
+    set('k_total', total); set('k_requested', rq); set('k_appr', appr); set('k_po', po); set('k_recv', recv); set('k_rej', rej);
 
     const sumEl = document.getElementById('k_summary');
-    if (sumEl) sumEl.textContent = `เดือนนี้มี ${total} รายการ • รอส่งต่อ ${rq} • ออก PO ${po} • รับครบ ${recv} • Reject ${rej}`;
+    if (sumEl) sumEl.textContent = `เดือนนี้มี ${total} รายการ • รอส่งต่อ ${rq} • อนุมัติแล้ว ${appr} • ออก PO ${po} • รับครบ ${recv} • Reject ${rej}`;
 
     const tbody = document.getElementById('tb_report');
     tbody.innerHTML = '';
     rows.sort((a,b) => new Date(b.ts) - new Date(a.ts));
+
     for (const r of rows){
       const tr = document.createElement('tr');
       tr.className = `rec rec-${(r.priority||'Normal').toLowerCase()}`;
+
       tr.innerHTML = `
         <td class="rpt-date">${fmtDate(r.ts)}</td>
         <td>${esc(r.requester || '-')}</td>
         <td>${priorityPill(r.priority)}</td>
-        <td><b style="font-weight:600">${esc(r.part)}</b> <div class="note">PN: ${esc(r.pn||'-')}</div></td>
+        <td>
+          <b style="font-weight:600">${esc(r.part)}</b>
+          <div class="note">PN: ${esc(r.pn||'-')}</div>
+        </td>
         <td>${esc(r.qty)} ${esc(r.unit||'')}</td>
-        <td><span class="pill ${statusColor(r.status)}">${esc(r.status||'-')}</span></td>
+        <td>
+          <span class="pill ${statusColor(r.status)}">${esc(r.status||'-')}</span>
+          <div class="note" style="margin-top:4px">อัปเดต: ${fmtDate(r.status_ts || r.ts)}</div>
+        </td>
         <td>${esc(r.po||'-')}</td>
       `;
       tbody.appendChild(tr);
@@ -459,6 +504,7 @@ async function loadReport(){
     showToast('โหลดรายงานไม่สำเร็จ: '+(e.message||e), 'error');
   }
 }
+
 
 /* ---------- Detail Modal ---------- */
 const modal=$('#detail_modal'); const modalBody=$('#detail_body');
@@ -474,6 +520,7 @@ function openDetail(r){
       <div class="lbl">เครื่อง/ไลน์</div><div class="val">${esc(r.machine||'-')}</div>
       <div class="lbl">Priority</div><div class="val">${priorityPill(r.priority)}</div>
       <div class="lbl">สถานะ</div><div class="val"><span class="pill ${statusColor(r.status)}">${esc(r.status||'-')}</span></div>
+      <div class="lbl">อัปเดตสถานะล่าสุด</div><div class="val">${fmtDate(r.status_ts || r.ts)}</div>
       <div class="lbl">PO#/เหตุผล</div><div class="val">${esc(r.po||r.note||'-')}</div>
       <div class="lbl">เหตุผล/ความจำเป็น</div><div class="val">${esc(r.reason||'-')}</div>
     </div>
@@ -613,12 +660,12 @@ function enhancePrettySelect(selector){
   sel.addEventListener('change', ()=>{ btn.textContent = sel.options[sel.selectedIndex]?.text || 'เลือก'; render(); });
 }
 enhancePrettySelect('#rq_priority');
-/* ===== Pretty file upload (wrap existing #rq_image, #rq_quotes) ===== */
+
+/* ===== Pretty file upload ===== */
 function prettyUpload(input, opts={}){
   if(!input) return;
   const isCompact = !!opts.compact;
 
-  // สร้าง UI
   const wrap = document.createElement('label');
   wrap.className = 'uploader' + (isCompact ? ' compact' : '');
   wrap.setAttribute('role','button');
@@ -636,14 +683,11 @@ function prettyUpload(input, opts={}){
   meta.append(ttl, sub);
   wrap.append(ink, meta, btn);
 
-  // ย้าย input เข้าไปใน wrapper (คง attribute เดิม)
   input.parentNode.insertBefore(wrap, input);
   wrap.appendChild(input);
 
-  // คลิกปุ่มให้เรียก input
   btn.addEventListener('click', ()=> input.click());
 
-  // อัปเดตชื่อไฟล์
   const filesBox = document.createElement('div'); filesBox.className='upl-files';
   wrap.appendChild(filesBox);
 
@@ -668,7 +712,6 @@ function prettyUpload(input, opts={}){
   }
   input.addEventListener('change', ()=> renderFiles(input.files));
 
-  // Drag & drop
   ;['dragenter','dragover'].forEach(ev=>{
     wrap.addEventListener(ev, e=>{ e.preventDefault(); e.stopPropagation(); wrap.classList.add('is-dragover'); });
   });
@@ -679,7 +722,6 @@ function prettyUpload(input, opts={}){
     const dt = e.dataTransfer;
     if(!dt || !dt.files?.length) return;
     if(!input.multiple && dt.files.length>1){
-      // ถ้าเป็นช่องรูปเดียว ให้รับเฉพาะไฟล์แรก
       const d = new DataTransfer(); d.items.add(dt.files[0]); input.files = d.files;
     }else{
       input.files = dt.files;
@@ -688,7 +730,6 @@ function prettyUpload(input, opts={}){
   });
 }
 
-// ใช้กับช่องรูป (ไฟล์เดียว) และใบเสนอราคา (หลายไฟล์)
 prettyUpload(document.getElementById('rq_image'),  {
   title:'เลือกรูปภาพ', hint:'ลากวางหรือคลิกเลือก (รองรับ jpg/png/pdf)', compact:true, aria:'อัปโหลดรูป'
 });
@@ -696,32 +737,22 @@ prettyUpload(document.getElementById('rq_quotes'), {
   title:'แนบใบเสนอราคา (PDF)', hint:'ลากวางหรือคลิกเลือก · ได้สูงสุด 3 ไฟล์', aria:'อัปโหลดใบเสนอราคา'
 });
 
-/* ---------- Export CSV (cross-browser + UTF-8 BOM) ---------- */
+/* ---------- Export CSV (UTF-8 BOM) ---------- */
 function downloadCSV(filename, csvText){
-  // ใส่ BOM เพื่อให้ Excel อ่านภาษาไทยถูก
   const blob = new Blob(["\uFEFF" + csvText], { type: "text/csv;charset=utf-8;" });
-
-  // IE/Edge รุ่นเก่า
   if (window.navigator && typeof window.navigator.msSaveOrOpenBlob === "function") {
     window.navigator.msSaveOrOpenBlob(blob, filename);
     return;
   }
-
-  // ปกติ: สร้างลิงก์ดาวน์โหลด
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.style.display = "none";
   a.href = url;
   a.setAttribute("download", filename);
-
-  // iOS Safari ไม่รองรับ download attribute → เปิดแท็บใหม่แทน
   const isIOS = /iP(ad|hone|od)/.test(navigator.userAgent);
   if (isIOS) a.setAttribute("target", "_blank");
-
   document.body.appendChild(a);
   a.click();
-
-  // cleanup
   setTimeout(() => {
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
@@ -730,18 +761,16 @@ function downloadCSV(filename, csvText){
 
 document.getElementById('btn_export')?.addEventListener('click', async ()=>{
   try{
-    // ถ้ายังไม่ได้โหลดรายงาน ให้โหลดก่อน
     if (!Array.isArray(state.reportRows) || state.reportRows.length === 0) {
       await loadReport();
     }
-
     const rows = state.reportRows || [];
     const header = ["Date","Requester","Priority","Part","PN","Qty","Unit","Status","PO","Machine"];
     const lines  = [header.join(",")];
 
     rows.forEach(r=>{
       const line = [
-        fmtDate(r.ts),
+        fmtDateISO(r.ts),      // ใช้รูปแบบ ISO เพื่อให้ Excel sort ง่าย
         r.requester || "",
         r.priority || "",
         r.part || "",
@@ -763,3 +792,45 @@ document.getElementById('btn_export')?.addEventListener('click', async ()=>{
   }
 });
 
+/* === ทำหัวคอลัมน์แอ็กชันขวาสุดเป็น sticky อัตโนมัติ === */
+(function markStickyHeader(){
+  const th = document.querySelector('#dashboard thead th:last-child');
+  if (th) th.classList.add('sticky-actions');
+})();
+
+/* === ปุ่มคอมแพ็ค: “ดูรูป” แทน “แก้ไข” === */
+function attachQuickViewHandlers(){
+  document.querySelectorAll('#tb_rows tr').forEach(tr=>{
+    const saveBtn = tr.querySelector('.act-save');
+    if(!saveBtn) return;
+
+    const id = saveBtn.dataset.id;
+    const actions = tr.querySelector('.actions');
+    if(!actions) return;
+
+    // ถ้ามีปุ่มคอมแพ็คอยู่แล้วไม่ต้องเพิ่ม
+    if(actions.querySelector('.act-quick')) return;
+
+    const quickBtn = document.createElement('button');
+    quickBtn.className = 'btn small outline act-quick';
+    quickBtn.textContent = 'ดูรูป';
+    quickBtn.addEventListener('click', ()=>{
+      const row = state.rows.find(x=>x.id===id);
+      if(row?.image_url){
+        window.open(row.image_url, '_blank', 'noopener');
+      }else{
+        showToast('รายการนี้ไม่มีรูปแนบ','info');
+      }
+    });
+
+    // ใส่ไว้ซ้ายสุดของ action group
+    actions.prepend(quickBtn);
+  });
+}
+
+/* เรียกหลังวาดตารางทุกครั้ง */
+const _origReload = reloadTable;
+reloadTable = async function(){
+  await _origReload();
+  attachQuickViewHandlers();
+};
