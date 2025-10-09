@@ -642,3 +642,45 @@ input[type="date"].no-cal{ background-image:none; }
 /* File pills (แสดงชื่อไฟล์หลายไฟล์) */
 .upl-files{ display:flex; gap:6px; flex-wrap:wrap; margin-top:6px }
 .upl-pill{ padding:4px 8px; border-radius:999px; background:#f1f5ff; border:1px solid #e2e8f0; font-size:12px; color:#334155 }
+
+/* ===== Mobile menu toggle (click/touch) ===== */
+(function initMobileMenu(){
+  const btn  = document.getElementById('mobile_menu_btn');
+  const list = document.getElementById('mobile_menu_list');
+  if(!btn || !list) return;
+
+  const open = () => { list.classList.remove('hidden'); btn.setAttribute('aria-expanded','true'); };
+  const close = () => { list.classList.add('hidden');    btn.setAttribute('aria-expanded','false'); };
+  const toggle = (e) => { e.stopPropagation(); list.classList.contains('hidden') ? open() : close(); };
+
+  // เปิด/ปิดด้วยคลิกและทัช
+  btn.addEventListener('click', toggle);
+  btn.addEventListener('touchend', toggle, {passive:true});
+
+  // คลิกรายการ -> สลับแท็บ + ปิดเมนู
+  document.querySelectorAll('.menu-item').forEach(it=>{
+    it.addEventListener('click', (e)=>{
+      e.stopPropagation();
+      const tab = it.dataset.tab;
+      const target = document.querySelector(`.tab[data-tab="${tab}"]`);
+      if(target){ target.click(); }
+      close();
+    });
+  });
+
+  // คลิกนอกเมนู -> ปิด
+  document.addEventListener('click', (e)=>{
+    if(!list.classList.contains('hidden') && !list.contains(e.target) && e.target !== btn){
+      close();
+    }
+  }, {passive:true});
+
+  // กด ESC -> ปิด
+  document.addEventListener('keydown', (e)=>{ if(e.key==='Escape') close(); });
+
+  // เปลี่ยนเป็นจอใหญ่ -> ปิดเมนูค้าง
+  const mql = window.matchMedia('(min-width: 861px)');
+  mql.addEventListener?.('change', close);
+})();
+
+
