@@ -831,3 +831,38 @@ input[type="date"].no-cal{ background-image:none; }
 /* File pills (แสดงชื่อไฟล์หลายไฟล์) */
 .upl-files{ display:flex; gap:6px; flex-wrap:wrap; margin-top:6px }
 .upl-pill{ padding:4px 8px; border-radius:999px; background:#f1f5ff; border:1px solid #e2e8f0; font-size:12px; color:#334155 }
+.kpi-pretty .kpi-f{
+  background: linear-gradient(180deg,#ffffff 0%, #e7f7ff 100%);
+}
+@media(min-width:1200px){ .kpi{ grid-template-columns:repeat(6,1fr) } }
+/* ===== Sticky actions column (ขวาสุด) ===== */
+.table table{ position:relative; }
+.table thead th.sticky-actions,
+.table tbody td.col-actions{
+  position: sticky;
+  right: 0;
+  background: var(--surface);
+  z-index: 6;                         /* ให้อยู่เหนือคอลัมน์อื่นเวลาสกรอลล์ */
+  box-shadow: -10px 0 20px rgba(2,6,23,.06);
+}
+
+/* กันเนื้อหาทะลุขอบ + ความกว้างขั้นต่ำ */
+.table thead th.sticky-actions{ min-width: 300px; }
+.table tbody td.col-actions{ min-width: 300px; }
+
+/* จอแคบ: ยุบปุ่มเป็นโหมดคอมแพ็ค */
+@media (max-width: 880px){
+  .actions{ gap:6px; }
+  .actions .status-select,
+  .actions .po-input,
+  .actions .btn:not(.act-quick){
+    display:none;                     /* ซ่อนทุกอย่าง เหลือปุ่มแก้ไขด่วน */
+  }
+  .actions .btn.act-quick{
+    display:inline-flex;
+  }
+  .table thead th.sticky-actions,
+  .table tbody td.col-actions{
+    min-width: 120px;                 /* ให้แคบลง */
+  }
+}
