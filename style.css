@@ -642,3 +642,36 @@ input[type="date"].no-cal{ background-image:none; }
 /* File pills (แสดงชื่อไฟล์หลายไฟล์) */
 .upl-files{ display:flex; gap:6px; flex-wrap:wrap; margin-top:6px }
 .upl-pill{ padding:4px 8px; border-radius:999px; background:#f1f5ff; border:1px solid #e2e8f0; font-size:12px; color:#334155 }
+
+/* ===== Mobile Menu (minimal, same font) ===== */
+.mobile-nav{ display:none; position:relative; z-index:999; }
+.menu-btn{
+  appearance:none; border:0; cursor:pointer;
+  padding:10px 14px; border-radius:12px;
+  background:linear-gradient(135deg,var(--brand-2),var(--brand-1));
+  color:#fff; font-weight:600; font-family:var(--font-base);
+  box-shadow:var(--shadow);
+}
+.menu-btn:active{ transform:translateY(1px); }
+
+.menu-list{
+  position:absolute; right:0; top:calc(100% + 10px);
+  min-width:240px; padding:8px;
+  background:var(--surface); border:1px solid var(--stroke);
+  border-radius:14px; box-shadow:0 20px 40px rgba(2,6,23,.12);
+  font-family:var(--font-base);
+}
+.menu-item{
+  width:100%; text-align:left; appearance:none; border:0;
+  background:transparent; cursor:pointer; padding:12px 12px;
+  border-radius:10px; font-weight:600; color:var(--text);
+}
+.menu-item:hover{ background:var(--surface-2); }
+
+/* แสดงปุ่มเมนูเฉพาะจอเล็ก, ซ่อนแท็บเดิม */
+@media (max-width: 860px){
+  .tabs{ display:none; }
+  .mobile-nav{ display:block; }
+}
+
+
