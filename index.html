@@ -60,7 +60,7 @@
           </div>
 
           <div><label for="rq_machine">ใช้กับเครื่อง/ไลน์</label>
-            <input id="rq_machine" placeholder="เช่น Vacuum Forming #3" data-combo="machines" />
+            <input id="rq_machine" placeholder="เช่น Vacuum Forming" data-combo="machines" />
           </div>
 
           <!-- ลบ Due Date ออกแล้ว -->
@@ -116,7 +116,7 @@
               <option value="Received">Received</option>
               <option value="Rejected">Rejected</option>
             </select>
-            <input id="f_search" placeholder="ค้นหาชื่ออะไหล่ / Part No. / เครื่อง" aria-label="ค้นหา" />
+            <input id="f_search" placeholder="ค้นหาแผนก / เครื่อง" aria-label="ค้นหา" />
             <button class="btn small" id="btn_reload">รีเฟรช</button>
           </div>
         </div>
@@ -160,6 +160,7 @@
         <div class="kpi kpi-pretty">
           <div class="tile kpi-a"><h3>คำขอทั้งหมด</h3><div class="val" id="k_total">0</div><div class="kpi-sub">รวมทุกสถานะ</div></div>
           <div class="tile kpi-b"><h3>รอยืนยัน/ส่งต่อ</h3><div class="val" id="k_requested">0</div><div class="kpi-sub">สถานะ Requested</div></div>
+          <div class="tile kpi-f"><h3>อนุมัติแล้ว</h3><div class="val" id="k_appr">0</div><div class="kpi-sub">สถานะ Approved</div></div>
           <div class="tile kpi-c"><h3>ออก PO แล้ว</h3><div class="val" id="k_po">0</div><div class="kpi-sub">กำลังดำเนินการสั่งซื้อ</div></div>
           <div class="tile kpi-e"><h3>ถูก Reject</h3><div class="val" id="k_rej">0</div><div class="kpi-sub">ยกเลิกรายการ</div></div>
           <div class="tile kpi-d"><h3>รับของครบแล้ว</h3><div class="val" id="k_recv">0</div><div class="kpi-sub">ปิดงานสำเร็จ</div></div>
@@ -259,4 +260,3 @@
   <script type="module" src="app.js"></script>
 </body>
 </html>
-
