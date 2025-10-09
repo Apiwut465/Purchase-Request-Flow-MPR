@@ -696,3 +696,70 @@ prettyUpload(document.getElementById('rq_quotes'), {
   title:'แนบใบเสนอราคา (PDF)', hint:'ลากวางหรือคลิกเลือก · ได้สูงสุด 3 ไฟล์', aria:'อัปโหลดใบเสนอราคา'
 });
 
+/* ---------- Export CSV (cross-browser + UTF-8 BOM) ---------- */
+function downloadCSV(filename, csvText){
+  // ใส่ BOM เพื่อให้ Excel อ่านภาษาไทยถูก
+  const blob = new Blob(["\uFEFF" + csvText], { type: "text/csv;charset=utf-8;" });
+
+  // IE/Edge รุ่นเก่า
+  if (window.navigator && typeof window.navigator.msSaveOrOpenBlob === "function") {
+    window.navigator.msSaveOrOpenBlob(blob, filename);
+    return;
+  }
+
+  // ปกติ: สร้างลิงก์ดาวน์โหลด
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.style.display = "none";
+  a.href = url;
+  a.setAttribute("download", filename);
+
+  // iOS Safari ไม่รองรับ download attribute → เปิดแท็บใหม่แทน
+  const isIOS = /iP(ad|hone|od)/.test(navigator.userAgent);
+  if (isIOS) a.setAttribute("target", "_blank");
+
+  document.body.appendChild(a);
+  a.click();
+
+  // cleanup
+  setTimeout(() => {
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }, 0);
+}
+
+document.getElementById('btn_export')?.addEventListener('click', async ()=>{
+  try{
+    // ถ้ายังไม่ได้โหลดรายงาน ให้โหลดก่อน
+    if (!Array.isArray(state.reportRows) || state.reportRows.length === 0) {
+      await loadReport();
+    }
+
+    const rows = state.reportRows || [];
+    const header = ["Date","Requester","Priority","Part","PN","Qty","Unit","Status","PO","Machine"];
+    const lines  = [header.join(",")];
+
+    rows.forEach(r=>{
+      const line = [
+        fmtDate(r.ts),
+        r.requester || "",
+        r.priority || "",
+        r.part || "",
+        r.pn || "",
+        r.qty ?? "",
+        r.unit || "",
+        r.status || "",
+        r.po || "",
+        r.machine || ""
+      ].map(csvSafe).join(",");
+      lines.push(line);
+    });
+
+    const csv = lines.join("\n");
+    downloadCSV("purchase_report_month.csv", csv);
+    showToast("กำลังส่งออกไฟล์ CSV…","info");
+  }catch(e){
+    showToast("ส่งออกไม่สำเร็จ: " + (e.message||e), "error");
+  }
+});
+
