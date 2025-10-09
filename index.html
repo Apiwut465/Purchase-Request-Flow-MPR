@@ -11,18 +11,32 @@
   <div class="wrap">
     <header class="site-header">
       <div class="brand">
-        <div class="logo" aria-hidden="true"></div>
+  
         <div>
           <h1 class="brand-title">Purchase Request Flow MPR</h1>
           <div class="subtitle">Order Part</div>
         </div>
       </div>
+
+      <!-- เดสก์ท็อป/จอกว้าง: ใช้แท็บ -->
       <nav class="tabs" aria-label="Navigation tabs">
         <button class="tab active" data-tab="request">ขอสั่งซื้อ</button>
         <button class="tab" data-tab="dashboard">Dashboard จัดซื้อ</button>
         <button class="tab" data-tab="report">สรุปยอด/Report</button>
         <button class="tab" data-tab="settings">ตั้งค่า</button>
       </nav>
+
+      <!-- มือถือ/จอเล็ก: ใช้ดรอปดาวน์ (ปุ่มเมนูสวยๆ) -->
+      <div class="mobile-nav" aria-label="Mobile menu">
+        <button class="menu-btn" id="mobile_menu_btn"
+                aria-expanded="false" aria-controls="mobile_menu_list">เมนู</button>
+        <div class="menu-list hidden" id="mobile_menu_list" role="menu">
+          <button class="menu-item" data-tab="request"  role="menuitem">ขอสั่งซื้อ</button>
+          <button class="menu-item" data-tab="dashboard" role="menuitem">Dashboard จัดซื้อ</button>
+          <button class="menu-item" data-tab="report"   role="menuitem">สรุปยอด/Report</button>
+          <button class="menu-item" data-tab="settings" role="menuitem">ตั้งค่า</button>
+        </div>
+      </div>
     </header>
 
     <main>
@@ -54,9 +68,9 @@
           <div class="grow">
             <label for="rq_priority">ระดับความเร่งด่วน</label>
             <select id="rq_priority">
-              <option value="Urgent">Urgent — กระทบการผลิต</option>
-              <option value="High">High — ใช้ใน PM รอบใกล้</option>
-              <option value="Normal" selected>Normal — สำรองทั่วไป</option>
+              <option value="Urgent">🔴Urgent — ด่วน/กระทบการผลิต❗</option>
+              <option value="High">🟡High — ด่วนแต่ไม่มาก/ใช้ใน PM รอบใกล้</option>
+              <option value="Normal" selected>🟢Normal — สำรองทั่วไป</option>
             </select>
           </div>
           <div class="grow">
