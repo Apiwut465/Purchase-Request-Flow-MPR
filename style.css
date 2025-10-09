@@ -600,45 +600,58 @@ input[type="date"].no-cal{ background-image:none; }
   border:0; outline: none;
 }
 
-/* ===== Pretty File Uploader ===== */
-.uploader{
-  position:relative; display:flex; align-items:center; gap:12px;
-  padding:12px 14px; border:1.5px dashed #dbe2f3; border-radius:14px;
-  background:linear-gradient(180deg,#fff 0%, #f7f9ff 100%);
-  box-shadow:0 8px 22px rgba(2,6,23,.06);
-  cursor:pointer; transition:box-shadow .15s, transform .06s, border-color .2s;
-  min-height:52px;
-  font-family: var(--font-base);
+/* ===== Pretty Select (custom) for #rq_priority ===== */
+.ps{ position:relative; }
+.ps select{ position:absolute; inset:0; opacity:0; pointer-events:none; } /* เก็บไว้เพื่อฟอร์ม/JS เดิม */
+
+.ps-trigger{
+  width:100%;
+  padding:12px 42px 12px 14px;
+  border:1px solid var(--stroke);
+  border-radius:12px;
+  background:linear-gradient(180deg,#ffffff 0%, #f7f9ff 100%);
+  box-shadow:0 6px 16px rgba(2,6,23,.06);
+  color:var(--text);
+  font-family:var(--font-base);
+  font-size:14px; letter-spacing:.2px; text-align:left;
+  cursor:pointer; transition:border-color .15s, box-shadow .15s, transform .06s;
 }
-.uploader:hover{ box-shadow:0 12px 28px rgba(2,6,23,.08); transform:translateY(-1px); border-color:#cfe0ff; }
-.uploader:focus-within{ outline:none; box-shadow:0 0 0 4px #eef2ff, 0 8px 22px rgba(2,6,23,.06); }
+.ps-trigger:hover{ transform:translateY(-1px); box-shadow:0 10px 22px rgba(2,6,23,.08); border-color:#dfe6ff; }
+.ps.open .ps-trigger{ border-color:#cdd7ff; box-shadow:0 0 0 4px #eef2ff, 0 6px 16px rgba(2,6,23,.06); }
 
-.upl-ink{ width:40px; height:40px; border-radius:12px;
-  background:linear-gradient(135deg,var(--brand-2),var(--brand-1)); flex:0 0 auto;
-  display:grid; place-items:center; color:#fff; font-weight:700; box-shadow: var(--shadow);
+/* caret */
+.ps-trigger::after{
+  content:"";
+  position:absolute; right:12px; top:50%; transform:translateY(-50%);
+  width:20px; height:20px; background-repeat:no-repeat; background-position:center; background-size:18px;
+  background-image:url("data:image/svg+xml;utf8,\
+  <svg xmlns='http://www.w3.org/2000/svg' width='20' height='20' viewBox='0 0 24 24' fill='none' stroke='%236b7ab8' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><polyline points='6 9 12 15 18 9'/></svg>");
+  pointer-events:none;
 }
-.upl-meta{ flex:1 1 auto; min-width:0 }
-.upl-meta .ttl{ font-weight:600; letter-spacing:.2px }
-.upl-meta .sub{ font-size:12px; color:var(--muted); margin-top:2px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis }
+.ps.open .ps-trigger::after{ transform:translateY(-50%) rotate(180deg); }
 
-.upl-btn{
-  appearance:none; border:0; border-radius:10px; padding:8px 10px;
-  background:linear-gradient(135deg,var(--brand-2),var(--brand-1));
-  color:#fff; font-weight:600; cursor:pointer; box-shadow:0 8px 18px rgba(99,102,241,.18);
+/* dropdown list */
+.ps-list{
+  position:absolute; z-index:60; left:0; right:0; top:calc(100% + 8px);
+  background:rgba(255,255,255,.95);
+  border:1px solid var(--stroke); border-radius:14px;
+  box-shadow:0 18px 40px rgba(2,6,23,.12);
+  padding:8px; max-height:260px; overflow:auto;
+  backdrop-filter:blur(8px);
+  transform-origin:top right; animation:ps-in .14s ease-out;
 }
-.upl-btn.small{ padding:6px 8px; font-size:12.5px }
-
-.uploader input[type="file"]{
-  position:absolute; inset:0; opacity:0; cursor:pointer; /* เก็บไฟล์เดิมไว้เพื่อ form */
+.ps-list.hidden{ display:none; }
+.ps-list::before{
+  content:""; position:absolute; top:-7px; right:18px; width:12px; height:12px; transform:rotate(45deg);
+  background:inherit; border-left:1px solid var(--stroke); border-top:1px solid var(--stroke);
 }
 
-/* Drag over state */
-.uploader.is-dragover{ border-color:#b9caff; background:linear-gradient(180deg,#f9fbff,#eef4ff); }
+/* item */
+.ps-item{
+  display:block; width:100%; text-align:left;
+  padding:12px; border-radius:10px; background:transparent; border:0; cursor:pointer;
+  font-weight:600; color:var(--text);
+}
+.ps-item:hover, .ps-item.active{ background:var(--surface-2); }
 
-/* Compact variant (ใช้กับไฟล์รูปเดียว) */
-.uploader.compact{ gap:10px; padding:10px 12px; min-height:46px }
-.uploader.compact .upl-ink{ width:36px; height:36px; border-radius:10px; }
-
-/* File pills (แสดงชื่อไฟล์หลายไฟล์) */
-.upl-files{ display:flex; gap:6px; flex-wrap:wrap; margin-top:6px }
-.upl-pill{ padding:4px 8px; border-radius:999px; background:#f1f5ff; border:1px solid #e2e8f0; font-size:12px; color:#334155 }
+@keyframes ps-in{ from{opacity:0; transform:translateY(-6px) scale(.98);} to{opacity:1; transform:translateY(0) scale(1);} }
