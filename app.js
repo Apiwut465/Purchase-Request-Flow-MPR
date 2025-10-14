@@ -76,12 +76,19 @@ function saveLists(l){ localStorage.setItem(LIST_STORE_KEY, JSON.stringify(l||{}
 let LISTS = loadLists();
 
 /* ---------- Supabase wrappers ---------- */
+// กันชื่อไฟล์ชนกัน: เติม timestamp suffix ตอนอัปโหลด
 async function uploadToBucket(bucket,file,objectPath){
-  const { error } = await supabase.storage.from(bucket).upload(objectPath,file,{upsert:false,cacheControl:'3600'});
+  const parts = objectPath.split('.');
+  const ts = Date.now();
+  const objectPathTs = parts.length>1
+    ? `${parts.slice(0,-1).join('.')}_${ts}.${parts.at(-1)}`
+    : `${objectPath}_${ts}`;
+  const { error } = await supabase.storage.from(bucket).upload(objectPathTs,file,{upsert:false,cacheControl:'3600'});
   if(error) throw error;
-  const { data: pub } = supabase.storage.from(bucket).getPublicUrl(objectPath);
+  const { data: pub } = supabase.storage.from(bucket).getPublicUrl(objectPathTs);
   return pub.publicUrl;
 }
+
 async function apiSubmit({row,imgFile,quoteFiles}){
   let image_url='';
   if(imgFile){
@@ -99,12 +106,18 @@ async function apiSubmit({row,imgFile,quoteFiles}){
   return { ok:true, id:row.id };
 }
 async function apiList(){ const { data,error } = await supabase.from(TABLE).select('*').order('ts',{ascending:false}); if(error) throw error; return { ok:true, rows:data }; }
+
+// อนุญาตอัปเดตทั้งสถานะและฟิลด์รายการ (ใช้ guard ฝั่ง UI ไม่ให้แก้เมื่อ Approved)
 async function apiUpdate(patch){
   const payload={};
   if('status'in patch) payload.status=patch.status;
-  if('status_ts'in patch) payload.status_ts=patch.status_ts;   // ✅ เวลาเปลี่ยนสถานะ
+  if('status_ts'in patch) payload.status_ts=patch.status_ts;
   if('po'in patch) payload.po=patch.po;
   if('note'in patch) payload.note=patch.note;
+
+  ['requester','dept','part','pn','qty','unit','machine','priority','reason']
+    .forEach(k=>{ if(k in patch) payload[k]=patch[k]; });
+
   const { error } = await supabase.from(TABLE).update(payload).eq('id',patch.id);
   if(error) throw error; return { ok:true };
 }
@@ -302,9 +315,19 @@ document.getElementById('btn_submit')?.addEventListener('click', async ()=>{
 
   if(!requester || !part || !qty){ showToast('กรุณากรอก "ชื่อผู้ขอ" / "ชื่ออะไหล่" / "จำนวน"','warn'); return; }
   if(qty<=0){ showToast('จำนวนต้องมากกว่า 0','warn'); return; }
+  if(!unit){ showToast('กรุณาระบุหน่วย (Unit)','warn'); return; }
+  if(!dept){ showToast('กรุณาระบุแผนก','warn'); return; }
   if(priority==='Urgent' && !reason){ showToast('กรุณากรอกเหตุผลเมื่อเป็น Urgent','warn'); return; }
 
+  // ตรวจรูปภาพตาม MIME/ขนาด (ถ้ามี)
   const imgFile=$('#rq_image').files[0]||null;
+  if (imgFile){
+    const okTypes = ['image/jpeg','image/png','image/webp'];
+    const MAX_IMAGE_MB = 3;
+    if (!okTypes.includes(imgFile.type)) { showToast('รูปต้องเป็น JPG/PNG/WebP เท่านั้น','warn'); return; }
+    if (imgFile.size > MAX_IMAGE_MB*1024*1024) { showToast(`รูปภาพเกิน ${MAX_IMAGE_MB}MB`, 'warn'); return; }
+  }
+
   const qFilesInput=$('#rq_quotes'); const quoteFiles=[]; const MAX_FILES=3, MAX_MB=1.5;
   if(qFilesInput?.files){
     for(let i=0;i<Math.min(qFilesInput.files.length,MAX_FILES);i++){
@@ -318,7 +341,7 @@ document.getElementById('btn_submit')?.addEventListener('click', async ()=>{
   const baseRow={
     id, ts, requester, dept, part, pn, qty, unit, machine,
     priority, reason, image_url:'', status:'Requested',
-    status_ts: ts,                 // ✅ เวลาอัปเดตสถานะเริ่มต้น
+    status_ts: ts,
     po:'', note:'', quote_files:[]
   };
 
@@ -339,6 +362,7 @@ document.getElementById('btn_submit')?.addEventListener('click', async ()=>{
 });
 
 document.getElementById('btn_clear')?.addEventListener('click', ()=>{
+  if(!confirm('ล้างฟอร์มทั้งหมดหรือไม่?')) return;
   ['rq_name','rq_dept','rq_part','rq_pn','rq_qty','rq_unit','rq_machine','rq_reason']
     .forEach(id=>{ const el=$('#'+id); if(el) el.value=''; });
   $('#rq_priority').value='Normal'; $('#rq_image').value=''; $('#rq_quotes').value='';
@@ -358,14 +382,14 @@ async function reloadTable(){
   if(priority) rows=rows.filter(r=>r.priority===priority);
   if(status)   rows=rows.filter(r=>r.status===status);
   if (q) {
-  rows = rows.filter(r =>
-    [r.part, r.pn, r.machine, r.requester, r.dept]   // ✅ เพิ่ม r.dept
-      .filter(Boolean)
-      .join(' ')
-      .toLowerCase()
-      .includes(q)
-  );
-}
+    rows = rows.filter(r =>
+      [r.part, r.pn, r.machine, r.requester, r.dept]
+        .filter(Boolean)
+        .join(' ')
+        .toLowerCase()
+        .includes(q)
+    );
+  }
   rows.sort((a,b)=>{
     const pr=p=>p==='Urgent'?0:p==='High'?1:2;
     const c1=pr(a.priority)-pr(b.priority); if(c1!==0) return c1;
@@ -376,6 +400,7 @@ async function reloadTable(){
   for(const r of rows){
     const tr=document.createElement('tr');
     tr.className=`rec rec-${(r.priority||'Normal').toLowerCase()}`;
+    const isApproved = r.status === 'Approved';
     tr.innerHTML=`
       <td>${priorityPill(r.priority)}</td>
       <td><div style="font-weight:600; letter-spacing:.2px">${esc(r.part)}</div></td>
@@ -390,6 +415,7 @@ async function reloadTable(){
       <td class="col-actions">
         <div class="actions">
           <button class="btn small outline act-detail" data-id="${r.id}">รายละเอียด</button>
+          <button class="btn small outline act-edit" data-id="${r.id}" ${isApproved ? 'disabled title="สถานะ Approved แล้ว ไม่สามารถแก้ไขได้"' : ''}>แก้ไข</button>
           <select class="status-select" data-id="${r.id}">
             ${['Requested','Approved','PO Issued','Received','Rejected'].map(s=>`<option ${r.status===s?'selected':''}>${s}</option>`).join('')}
           </select>
@@ -406,6 +432,16 @@ async function reloadTable(){
     btn.addEventListener('click',()=>{ const id=btn.dataset.id; const row=state.rows.find(x=>x.id===id); if(row) openDetail(row); });
   });
 
+  // ปุ่มแก้ไข (ห้ามแก้เมื่อ Approved)
+  $$('.act-edit').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      const id=btn.dataset.id; const row=state.rows.find(x=>x.id===id);
+      if(!row) return;
+      if(row.status === 'Approved'){ showToast('รายการที่อนุมัติแล้วไม่สามารถแก้ไขได้','warn'); return; }
+      openEditModal(row);
+    });
+  });
+
   $$('.act-save').forEach(btn=>{
     btn.addEventListener('click', async ()=>{
       const id=btn.dataset.id;
@@ -416,7 +452,6 @@ async function reloadTable(){
       const payload={ id };
       if(st==='PO Issued') payload.po = poOrNote; else payload.note = poOrNote;
 
-      // ถ้าสถานะเปลี่ยน ค่อยอัปเดต status และเวลาที่เปลี่ยน
       if (!prev || prev.status !== st) {
         payload.status = st;
         payload.status_ts = new Date().toISOString();
@@ -444,6 +479,10 @@ async function reloadTable(){
     const setPH=()=> input && (input.placeholder = (sel.value==='PO Issued' ? 'PO#' : 'เหตุผล'));
     setPH(); sel.addEventListener('change',setPH);
   });
+
+  // แสดงจำนวนรายการบนหัวข้อ
+  const head = $('#heading-dashboard');
+  if (head) head.innerHTML = `Dashboard จัดซื้อ <span class="note">(${rows.length} รายการ)</span>`;
 }
 document.getElementById('btn_reload')?.addEventListener('click', reloadTable);
 
@@ -454,8 +493,7 @@ document.getElementById('f_priority')?.addEventListener('change',debReload);
 document.getElementById('f_status')?.addEventListener('change',debReload);
 document.getElementById('f_search')?.addEventListener('input',debReload);
 
-/* ---------- Report (มี Approved) ---------- */
-/* ---------- Report (มี Approved + แสดงวันอัปเดตสถานะ) ---------- */
+/* ---------- Report ---------- */
 async function loadReport(){
   try{
     const res = await apiMonth();
@@ -480,9 +518,9 @@ async function loadReport(){
     rows.sort((a,b) => new Date(b.ts) - new Date(a.ts));
 
     for (const r of rows){
+      const files = Array.isArray(r.quote_files)? r.quote_files : [];
       const tr = document.createElement('tr');
       tr.className = `rec rec-${(r.priority||'Normal').toLowerCase()}`;
-
       tr.innerHTML = `
         <td class="rpt-date">${fmtDate(r.ts)}</td>
         <td>${esc(r.requester || '-')}</td>
@@ -505,11 +543,11 @@ async function loadReport(){
   }
 }
 
-
 /* ---------- Detail Modal ---------- */
 const modal=$('#detail_modal'); const modalBody=$('#detail_body');
 function openDetail(r){
   const files=Array.isArray(r.quote_files)? r.quote_files : [];
+  const noFiles = !r.image_url && (!files || !files.length);
   modalBody.innerHTML=`
     <div class="detail-grid">
       <div class="lbl">ผู้ขอ</div><div class="val">${esc(r.requester||'-')}</div>
@@ -534,7 +572,7 @@ function openDetail(r){
                  ${files.map((u,i)=>`<a href="${esc(u)}" target="_blank" rel="noopener">ไฟล์ที่ ${i+1}</a>`).join('')}
                </div>
              </div>`
-          : ''
+          : (noFiles ? `<div class="note" style="margin-top:6px">ไม่มีไฟล์แนบ</div>` : '')
       }
     </div>
   `;
@@ -543,6 +581,103 @@ function openDetail(r){
 function closeDetail(){ modal.classList.add('hidden'); modal.setAttribute('aria-hidden','true'); }
 modal?.addEventListener('click',(e)=>{ if(e.target.matches('[data-close], .modal-backdrop')) closeDetail(); });
 window.addEventListener('keydown',(e)=>{ if(!modal.classList.contains('hidden') && e.key==='Escape') closeDetail(); });
+
+/* ---------- Edit Modal (สร้างแบบไดนามิก) ---------- */
+let editModalEl = null;
+function ensureEditModal(){
+  if (editModalEl) return editModalEl;
+  const el = document.createElement('div');
+  el.id = 'edit_modal';
+  el.className = 'modal hidden';
+  el.setAttribute('role','dialog');
+  el.setAttribute('aria-modal','true');
+  el.setAttribute('aria-hidden','true');
+  el.innerHTML = `
+    <div class="modal-backdrop" data-close></div>
+    <div class="modal-card">
+      <div class="modal-head">
+        <h3 id="edit_title">แก้ไขรายการสั่งซื้อ</h3>
+        <button class="modal-close" aria-label="Close" data-close>&times;</button>
+      </div>
+      <div class="modal-body">
+        <div class="grid cols-2" id="edit_form">
+          <div><label>Part Name</label><input id="ed_part"/></div>
+          <div><label>Part No.</label><input id="ed_pn"/></div>
+          <div><label>จำนวน</label><input id="ed_qty" type="number" min="1" step="1"/></div>
+          <div><label>หน่วย</label><input id="ed_unit" data-combo="units" placeholder="เช่น pcs, set, meter"/></div>
+          <div><label>เครื่อง/ไลน์</label><input id="ed_machine" data-combo="machines"/></div>
+          <div><label>Priority</label>
+            <select id="ed_priority">
+              <option value="Urgent">🔴Urgent — ด่วน/กระทบการผลิต</option>
+              <option value="High">🟡High — ใช้ใน PM รอบใกล้</option>
+              <option value="Normal">🟢Normal — สำรองทั่วไป</option>
+            </select>
+          </div>
+          <div class="full"><label>เหตุผล/ความจำเป็น</label><textarea id="ed_reason" rows="3"></textarea></div>
+        </div>
+      </div>
+      <div class="modal-foot">
+        <button class="btn outline" data-close>ยกเลิก</button>
+        <button class="btn" id="ed_save">บันทึกการแก้ไข</button>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(el);
+
+  el.addEventListener('click',(e)=>{ if(e.target.matches('[data-close], .modal-backdrop')) closeEditModal(); });
+  window.addEventListener('keydown',(e)=>{ if(!el.classList.contains('hidden') && e.key==='Escape') closeEditModal(); });
+
+  editModalEl = el;
+  return el;
+}
+function openEditModal(row){
+  const el = ensureEditModal();
+  $('#edit_title', el).textContent = `แก้ไขรายการ: ${row.part || row.pn || row.id}`;
+
+  $('#ed_part', el).value     = row.part || '';
+  $('#ed_pn', el).value       = row.pn || '';
+  $('#ed_qty', el).value      = row.qty ?? 1;
+  $('#ed_unit', el).value     = row.unit || '';
+  $('#ed_machine', el).value  = row.machine || '';
+  $('#ed_priority', el).value = row.priority || 'Normal';
+  $('#ed_reason', el).value   = row.reason || '';
+
+  initComboboxes(); // ให้ unit/machine มี combobox
+
+  const btn = $('#ed_save', el);
+  btn.onclick = async ()=>{
+    const part     = $('#ed_part', el).value.trim();
+    const pn       = $('#ed_pn', el).value.trim();
+    const qty      = parseInt($('#ed_qty', el).value || '0', 10);
+    const unit     = $('#ed_unit', el).value.trim();
+    const machine  = $('#ed_machine', el).value.trim();
+    const priority = $('#ed_priority', el).value;
+    const reason   = $('#ed_reason', el).value.trim();
+
+    if (!part || !qty || qty<=0){ showToast('กรอก Part Name และจำนวนให้ถูกต้อง','warn'); return; }
+    if (!unit){ showToast('กรุณาระบุหน่วย (Unit)','warn'); return; }
+
+    btn.disabled = true; btn.textContent = 'กำลังบันทึก...';
+    try{
+      await apiUpdate({ id: row.id, part, pn, qty, unit, machine, priority, reason });
+      showToast('อัปเดตรายการเรียบร้อย','success');
+      closeEditModal();
+      await reloadTable();
+    }catch(e){
+      showToast('บันทึกไม่สำเร็จ: '+(e.message||e), 'error');
+    }finally{
+      btn.disabled = false; btn.textContent = 'บันทึกการแก้ไข';
+    }
+  };
+
+  el.classList.remove('hidden');
+  el.setAttribute('aria-hidden','false');
+}
+function closeEditModal(){
+  if(!editModalEl) return;
+  editModalEl.classList.add('hidden');
+  editModalEl.setAttribute('aria-hidden','true');
+}
 
 /* ===== Global: ปิด tooltip ดำทุกชนิดบนทั้งหน้า ===== */
 (function nukeAllTooltips() {
@@ -730,8 +865,11 @@ function prettyUpload(input, opts={}){
   });
 }
 
+// ปรับ hint ให้ตรงกับ accept=image/*
 prettyUpload(document.getElementById('rq_image'),  {
-  title:'เลือกรูปภาพ', hint:'ลากวางหรือคลิกเลือก (รองรับ jpg/png/pdf)', compact:true, aria:'อัปโหลดรูป'
+  title:'เลือกรูปภาพ',
+  hint:'รองรับ JPG/PNG/WebP (ลากวางหรือคลิกเลือก)',
+  compact:true, aria:'อัปโหลดรูป'
 });
 prettyUpload(document.getElementById('rq_quotes'), {
   title:'แนบใบเสนอราคา (PDF)', hint:'ลากวางหรือคลิกเลือก · ได้สูงสุด 3 ไฟล์', aria:'อัปโหลดใบเสนอราคา'
@@ -770,7 +908,7 @@ document.getElementById('btn_export')?.addEventListener('click', async ()=>{
 
     rows.forEach(r=>{
       const line = [
-        fmtDateISO(r.ts),      // ใช้รูปแบบ ISO เพื่อให้ Excel sort ง่าย
+        fmtDateISO(r.ts),
         r.requester || "",
         r.priority || "",
         r.part || "",
@@ -792,13 +930,23 @@ document.getElementById('btn_export')?.addEventListener('click', async ()=>{
   }
 });
 
-/* === ทำหัวคอลัมน์แอ็กชันขวาสุดเป็น sticky อัตโนมัติ === */
+/* === ทำหัวคอลัมน์แอ็กชันเป็น sticky เฉพาะจอกว้าง === */
 (function markStickyHeader(){
-  const th = document.querySelector('#dashboard thead th:last-child');
-  if (th) th.classList.add('sticky-actions');
+  const apply = () => {
+    const th = document.querySelector('#dashboard thead th:last-child');
+    if (!th) return;
+    if (window.matchMedia('(min-width: 881px)').matches) {
+      th.classList.add('sticky-actions');
+    } else {
+      th.classList.remove('sticky-actions');
+    }
+  };
+  apply();
+  window.addEventListener('resize', apply);
 })();
 
-/* === ปุ่มคอมแพ็ค: “ดูรูป” แทน “แก้ไข” === */
+
+/* === ปุ่มคอมแพ็ค: “ดูรูป” แทน “แก้ไข” (ยังคงไว้) === */
 function attachQuickViewHandlers(){
   document.querySelectorAll('#tb_rows tr').forEach(tr=>{
     const saveBtn = tr.querySelector('.act-save');
@@ -808,7 +956,6 @@ function attachQuickViewHandlers(){
     const actions = tr.querySelector('.actions');
     if(!actions) return;
 
-    // ถ้ามีปุ่มคอมแพ็คอยู่แล้วไม่ต้องเพิ่ม
     if(actions.querySelector('.act-quick')) return;
 
     const quickBtn = document.createElement('button');
@@ -823,7 +970,6 @@ function attachQuickViewHandlers(){
       }
     });
 
-    // ใส่ไว้ซ้ายสุดของ action group
     actions.prepend(quickBtn);
   });
 }
