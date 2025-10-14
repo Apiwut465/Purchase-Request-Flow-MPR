@@ -866,3 +866,192 @@ input[type="date"].no-cal{ background-image:none; }
     min-width: 120px;                 /* ให้แคบลง */
   }
 }
+/* ===== Action buttons look like the red Delete button (filled pill) ===== */
+.actions .act-quick,
+.actions .act-detail,
+.actions .act-edit{
+  /* ทับสไตล์ outline เดิม */
+  border: 0 !important;
+  color: #fff !important;
+  border-radius: 999px !important;
+  padding: 8px 14px !important;
+  font-weight: 700;
+  box-shadow: 0 6px 16px rgba(2,6,23,.12), 0 2px 6px rgba(2,6,23,.06);
+  transition: transform .06s ease, box-shadow .15s ease, filter .15s ease;
+}
+
+/* โทนสี: ฟ้า / ม่วง / เขียว (แต่ “ฟีล” เดียวกับปุ่มลบ) */
+.actions .act-quick{
+  background: linear-gradient(180deg,#64b5ff 0%, #3b82f6 100%);
+}
+.actions .act-detail{
+  background: linear-gradient(180deg,#a78bfa 0%, #6366f1 100%);
+}
+.actions .act-edit{
+  background: linear-gradient(180deg,#d39b34 0%, #ea8015 100%);
+}
+
+/* Hover/active ให้เด้งแบบเดียวกับปุ่มลบ */
+.actions .act-quick:hover,
+.actions .act-detail:hover,
+.actions .act-edit:hover{
+  transform: translateY(-1px);
+  box-shadow: 0 10px 22px rgba(2,6,23,.14);
+}
+.actions .act-quick:active,
+.actions .act-detail:active,
+.actions .act-edit:active{
+  transform: translateY(0);
+  box-shadow: 0 6px 14px rgba(2,6,23,.1);
+}
+
+/* โฟกัสคีย์บอร์ด */
+.actions .act-quick:focus-visible,
+.actions .act-detail:focus-visible,
+.actions .act-edit:focus-visible{
+  outline: none;
+  box-shadow: 0 0 0 3px #eef2ff, 0 6px 16px rgba(2,6,23,.12);
+}
+
+/* Disabled (เช่น “แก้ไข” เมื่อ Approved) */
+.actions .act-edit:disabled{
+  cursor: not-allowed;
+  background: linear-gradient(180deg,#cbd5e1 0%, #94a3b8 100%) !important;
+  color:#f8fafc !important;
+  box-shadow: none !important;
+  transform: none !important;
+  filter: saturate(.8);
+}
+
+/* ขนาดในโหมดจอแคบให้ยังเป็น pill สวยๆ */
+@media (max-width: 880px){
+  .actions .act-quick{ display:inline-flex; } /* ปุ่มที่คุณคงไว้ในโหมดคอมแพ็ค */
+}
+/* ===== Compact pills for action buttons ===== */
+.actions { gap: 6px; } /* ชุดปุ่มชิดขึ้นนิดนึง */
+
+.actions .act-quick,
+.actions .act-detail,
+.actions .act-edit{
+  padding: 6px 10px !important;   /* เดิม 8px 14px */
+  font-size: 12px !important;     /* เดิม ~13px */
+  line-height: 1.1 !important;
+  border-radius: 999px !important;
+  min-width: 0 !important;        /* ไม่บังคับกว้าง */
+  box-shadow: 0 4px 10px rgba(2,6,23,.10), 0 1px 4px rgba(2,6,23,.06);
+}
+
+.actions .act-quick:hover,
+.actions .act-detail:hover,
+.actions .act-edit:hover{
+  transform: translateY(-1px);
+  box-shadow: 0 7px 16px rgba(2,6,23,.12);
+}
+
+.actions .act-quick:active,
+.actions .act-detail:active,
+.actions .act-edit:active{
+  transform: translateY(0);
+  box-shadow: 0 4px 10px rgba(2,6,23,.10);
+}
+
+/* ปุ่มแก้ไขที่ถูก disable ให้ขนาดเท่ากัน */
+.actions .act-edit:disabled{
+  padding: 6px 10px !important;
+  font-size: 9px !important;
+}
+
+/* จอเล็ก: ยิ่งคอมแพ็คลงอีกนิด */
+@media (max-width: 880px){
+  .actions { gap: 4px; }
+  .actions .act-quick,
+  .actions .act-detail,
+  .actions .act-edit{
+    padding: 5px 9px !important;
+    font-size: 10px !important;
+  }
+}
+/* ===== Flat pastel pills (no shadow/gradient) + site font ===== */
+.actions .act-quick,
+.actions .act-detail,
+.actions .act-edit{
+  /* ขนาดกะทัดรัด */
+  padding: 6px 10px !important;
+  font-size: 12.5px !important;
+  line-height: 1.1 !important;
+  border-radius: 999px !important;
+
+  /* ฟอนต์ให้ตรงทั้งหน้า */
+  font-family: var(--font-base) !important;
+  font-weight: 600 !important;
+  letter-spacing: var(--font-letter, .25px) !important;
+
+  /* แบนสนิท */
+  border: 1px solid transparent !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  color: #fff !important;
+
+  /* ปรับคอร์สเซอร์/ทรานซิชันแบบเรียบ */
+  cursor: pointer;
+  transition: filter .12s ease, background-color .12s ease, border-color .12s ease;
+}
+
+/* สีเรียบใช้ค่าสีจากธีม (ไม่ไล่เฉด) */
+.actions .act-quick  { background-color: var(--brand-2) !important; } /* ฟ้า */
+.actions .act-detail { background-color: var(--brand-1) !important; } /* ม่วง */
+.actions .act-edit   { background-color: var(--brand-4) !important; } /* เขียว */
+
+/* Hover: แบนเหมือนเดิม แค่ดรอปสีลงเล็กน้อย */
+.actions .act-quick:hover,
+.actions .act-detail:hover,
+.actions .act-edit:hover{
+  filter: brightness(.96);
+}
+
+/* Active: ไม่เด้ง/ไม่ยุบ */
+.actions .act-quick:active,
+.actions .act-detail:active,
+.actions .act-edit:active{
+  filter: brightness(.92);
+}
+
+/* Focus ring ให้เหมือนคอมโพเนนต์อื่น ๆ */
+.actions .act-quick:focus-visible,
+.actions .act-detail:focus-visible,
+.actions .act-edit:focus-visible{
+  outline: none;
+  box-shadow: 0 0 0 3px #eef2ff !important;
+}
+
+/* Disabled (เช่น แก้ไขเมื่อ Approved): แบน + สีจางลง */
+.actions .act-edit:disabled{
+  background-color: #cbd5e1 !important;
+  color: #f8fafc !important;
+  border-color: #e2e8f0 !important;
+  filter: none !important;
+  cursor: not-allowed;
+}
+
+/* ระยะห่างกลุ่มปุ่มให้ดูแน่นขึ้น */
+.actions{ gap: 6px; }
+@media (max-width: 880px){
+  .actions{ gap: 4px; }
+  .actions .act-quick,
+  .actions .act-detail,
+  .actions .act-edit{
+    padding: 5px 9px !important;
+    font-size: 12px !important;
+  }
+}
+/* ปิด sticky column บนจอเล็กเพื่อไม่ให้ทับคอลัมน์อื่น */
+@media (max-width: 880px){
+  .table thead th.sticky-actions,
+  .table tbody td.col-actions{
+    position: static !important;
+    right: auto !important;
+    box-shadow: none !important;
+    background: transparent !important;
+    min-width: 0 !important;
+  }
+}
